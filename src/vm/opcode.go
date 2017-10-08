@@ -1,0 +1,56 @@
+package vm
+
+type OpCode int32
+
+// opcodes
+const (
+	OP_LEA OpCode = iota
+	OP_IMM
+	OP_JMP
+	OP_JSR
+	OP_BZ
+	OP_BNZ
+	OP_ENT
+	OP_ADJ
+	OP_LEV
+	OP_LI
+	OP_LC
+	OP_SI
+	OP_SC
+	OP_PCH
+	OP_OR
+	OP_XOR
+	OP_AND
+	OP_EQ
+	OP_NE
+	OP_LT
+	OP_GT
+	OP_GE
+	OP_SHL
+	OP_SHR
+	OP_ADD
+	OP_SUB
+	OP_MUL
+	OP_DIV
+	OP_MOD
+
+	OP_OPEN
+	OP_READ
+	OP_CLOS
+	OP_PRTF
+	OP_MALC
+	OP_MEST
+	OP_MCMP
+	OP_MCPY
+	OP_MMAP
+	OP_DSYM
+	OP_QSRT
+	OP_EXIT
+)
+
+// types
+const (
+	CHAR Token = iota
+	INT
+	PTR
+)
