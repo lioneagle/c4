@@ -1,6 +1,10 @@
 package vm
 
-type OpCode int32
+import (
+	"strconv"
+)
+
+type OpCode uint32
 
 // opcodes
 const (
@@ -54,3 +58,59 @@ const (
 	INT
 	PTR
 )
+
+var opCodeNames = [...]string{
+	OP_LEA: "LEA",
+	OP_IMM: "IMM",
+	OP_JMP: "JMP",
+	OP_JSR: "JSR",
+	OP_BZ:  "BZ",
+	OP_BNZ: "BNZ",
+	OP_ENT: "ENT",
+	OP_ADJ: "ADJ",
+	OP_LEV: "LEV",
+	OP_LI:  "LI",
+	OP_LC:  "LC",
+	OP_SI:  "SI",
+	OP_SC:  "SC",
+	OP_PCH: "PCH",
+	OP_OR:  "OR",
+	OP_XOR: "XOR",
+	OP_AND: "AND",
+	OP_EQ:  "EQ",
+	OP_NE:  "NE",
+	OP_LT:  "LT",
+	OP_GT:  "GT",
+	OP_GE:  "GE",
+	OP_SHL: "SHL",
+	OP_SHR: "SHR",
+	OP_ADD: "ADD",
+	OP_SUB: "SUB",
+	OP_MUL: "MUL",
+	OP_DIV: "DIV",
+	OP_MOD: "MOD",
+
+	OP_OPEN: "OPEN",
+	OP_READ: "READ",
+	OP_CLOS: "CLOS",
+	OP_PRTF: "PRTF",
+	OP_MALC: "MALC",
+	OP_MEST: "MEST",
+	OP_MCMP: "MCMP",
+	OP_MCPY: "MCPY",
+	OP_MMAP: "MMAP",
+	OP_DSYM: "DSYM",
+	OP_QSRT: "QSRT",
+	OP_EXIT: "EXIT",
+}
+
+func (op OpCode) String() string {
+	s := ""
+	if op < OpCode(len(opCodeNames)) {
+		s = opCodeNames[op]
+	}
+	if s == "" {
+		s = "OpCode(" + strconv.Itoa(int(op)) + ")"
+	}
+	return s
+}
