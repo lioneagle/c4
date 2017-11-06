@@ -3,6 +3,10 @@ package parser
 import (
 	"config"
 	"fmt"
+	"io/ioutil"
+	"strconv"
+	//"strings"
+	"vm"
 )
 
 type Symbol struct {
@@ -16,27 +20,60 @@ type Symbol struct {
 	Id     string
 }
 
-type Symbols [string]*Symbol
+type Symbols map[string]*Symbol
 
 type Parser struct {
 	src             []byte
-	pos             int
-	lastPos         int
-	emitPos         int
-	lastEmitPos     int
-	text            []OpCode
-	data            []int
-	line            int
-	currentExprType int32
+	pos             uint64
+	lastPos         uint64
+	emitPos         uint64
+	lastEmitPos     uint64
+	vim             vm.Vim
+	line            uint64
+	currentExprType uint64
 	token           Token
-	tokenValue      int32
+	tokenValue      uint64
 	symbols         Symbols
-	ival            int
+	ival            uint64
+	sval            []byte
+	idName          []byte
+}
+
+func NewParser() *Parser {
+	return &Parser{symbols: make(map[string]*Symbol)}
+}
+
+func (this *Parser) ReadFile(filename string) (err error) {
+	this.src, err = ioutil.ReadFile(filename)
+	if err == nil && len(this.src) > 0 {
+		this.line = 1
+	}
+	return err
+}
+
+func (this *Parser) Line() uint64 {
+	return this.line
+}
+
+func (this *Parser) Eof() bool {
+	return this.token == EOF
+}
+
+func (this *Parser) Token() Token {
+	return this.token
+}
+
+func (this *Parser) IdName() string {
+	return string(this.idName)
 }
 
 func (this *Parser) Next(config *config.RunConfig) {
-	for this.pos < len(this.src) {
+	for this.pos < uint64(len(this.src)) {
 		ch := this.src[this.pos]
+		//fmt.Printf("Next: ch = %c, ch = %d, line = %d\n", ch, ch, this.line)
+		//fmt.Printf("Next: ch = %c, ch = %d\n", ch, int(ch))
+		//fmt.Printf("Next: ch = %s\n", PrintChar(ch))
+		//fmt.Println("here1")
 		this.pos++
 
 		if ch == '\n' {
@@ -45,18 +82,20 @@ func (this *Parser) Next(config *config.RunConfig) {
 				this.lastPos = this.pos
 			}
 			for this.lastEmitPos < this.emitPos {
-				fmt.Printf("%s, ", this.text[this.lastEmitPos])
-				if this.text[this.lastEmitPos] < OP_ADJ {
+				op := this.vim.OpCode(this.lastEmitPos)
+				fmt.Printf("%s, ", op)
+				if op < vm.OP_ADJ {
 					this.lastEmitPos++
-					fmt.Printf(" %d\n", this.text[this.lastEmitPos])
+					fmt.Printf(" %d\n", this.vim.OpCode(this.lastEmitPos))
 				} else {
 					fmt.Println()
 				}
 			}
 			this.line++
+			//fmt.Printf("line = %d\n", this.line)
 		} else if ch == '#' {
 			this.eatLine(config)
-		} else if isIdentifierChar(ch) {
+		} else if isIdentifierFisrtChar(ch) {
 			this.parseIdentifier(config)
 			return
 		} else if isDigit(ch) {
@@ -69,47 +108,196 @@ func (this *Parser) Next(config *config.RunConfig) {
 				this.token = DIV
 			}
 			return
-		} else if (ch == '\'') || (ch == '"') {
-			for ; this.pos < len(this.src); this.src[this.pos] != ch {
-				//this.ival =
+		} else if ch == '\'' {
+			this.parseChar(config)
+		} else if ch == '"' {
+			this.parseString(config)
+		} else if ch == '=' {
+			if this.src[this.pos] == '=' {
+				this.token = EQ
+			} else {
+				this.token = ASSIGN
 			}
+			return
+		} else if ch == '+' {
+			if this.src[this.pos] == '+' {
+				this.token = INC
+			} else {
+				this.token = ADD
+			}
+			return
+		} else if ch == '-' {
+			if this.src[this.pos] == '-' {
+				this.token = DEC
+			} else {
+				this.token = SUB
+			}
+			return
+		} else if ch == '!' {
+			if this.src[this.pos] == '=' {
+				this.token = NE
+			}
+			return
+		} else if ch == '<' {
+			if this.src[this.pos] == '=' {
+				this.token = LE
+			} else if this.src[this.pos] == '<' {
+				this.token = SHL
+			} else {
+				this.token = LT
+			}
+			return
+		} else if ch == '>' {
+			if this.src[this.pos] == '=' {
+				this.token = GE
+			} else if this.src[this.pos] == '>' {
+				this.token = SHR
+			} else {
+				this.token = GT
+			}
+			return
+		} else if ch == '|' {
+			if this.src[this.pos] == '|' {
+				this.token = LOR
+			} else {
+				this.token = OR
+			}
+			return
+		} else if ch == '&' {
+			if this.src[this.pos] == '&' {
+				this.token = LAN
+			} else {
+				this.token = AND
+			}
+			return
+		} else if ch == '^' {
+			this.token = XOR
+			return
+		} else if ch == '%' {
+			this.token = MOD
+			return
+		} else if ch == '*' {
+			this.token = MUL
+			return
+		} else if ch == '[' {
+			this.token = BRAK
+			return
+		} else if ch == '?' {
+			this.token = COND
+			return
+		} else if ch == '^' {
+			this.token = XOR
+			return
+		} else if ch == '~' || ch == ';' || ch == '{' || ch == '}' || ch == '(' || ch == ')' || ch == ']' || ch == ',' || ch == ':' {
+			this.token = Token(ch)
+			return
 		}
 	}
+	this.token = EOF
+}
+
+func (this *Parser) Expr(config *config.RunConfig) bool {
+	if this.token == EOF {
+		this.Error("unexpected eof in expression")
+		return false
+	}
+
+	if this.token == NUM {
+
+	}
+
+	return true
+
+}
+
+func (this *Parser) Error(format string, args ...interface{}) {
+	fmt.Printf("%d: %s\n", this.line, fmt.Sprintf(format, args...))
+}
+
+func (this *Parser) parseString(config *config.RunConfig) {
+	begin := this.pos
+	for this.pos < uint64(len(this.src)) && this.src[this.pos] != '"' {
+		this.pos++
+	}
+	if this.pos >= uint64(len(this.src)) {
+		fmt.Printf("ERROR: invalid string at pos %d\n", this.pos)
+		return
+	}
+
+	this.token = STRING
+	this.sval = this.src[begin:this.pos]
+	this.pos++
+}
+
+func (this *Parser) parseChar(config *config.RunConfig) {
+	end := this.pos
+	if end >= uint64(len(this.src)) {
+		return
+	}
+
+	if this.src[end] != '\\' {
+		this.ival = uint64(this.src[end])
+	} else {
+		end++
+		if end > uint64(len(this.src)) {
+			return
+		}
+		switch this.src[end] {
+		case 'n':
+			this.ival = '\n'
+		case 'r':
+			this.ival = '\r'
+		case 't':
+			this.ival = '\t'
+		default:
+			fmt.Printf("ERROR: unknown char at pos %d\n", end)
+			return
+		}
+		end++
+
+		if this.src[end] != '\'' {
+			fmt.Printf("ERROR: invalid char at pos %d\n", end)
+			return
+		}
+	}
+	this.token = CHAR
 }
 
 func (this *Parser) eatLine(config *config.RunConfig) {
-	for this.pos < len(this.src) && this.src[this.pos] != '\n' {
+	for this.pos < uint64(len(this.src)) && this.src[this.pos] != '\n' {
+		//fmt.Printf("Next: ch = %s\n", PrintChar(this.src[this.pos]))
 		this.pos++
 	}
+	//fmt.Printf("eatLine: end, line = %d\n", this.line)
 }
 
 func (this *Parser) parseInt(config *config.RunConfig) {
-	begin = this.pos - 1
-	end = this.pos
+	begin := this.pos - 1
+	end := this.pos
 
-	val := int(this.src[begin] - '0')
+	val := uint64(this.src[begin] - '0')
 
 	if val != 0 {
 		val := int(this.src[begin] - '0')
-		for ; end < len(this.src); end++ {
-			if !isDigit(src[end]) {
+		for ; end < uint64(len(this.src)); end++ {
+			if !isDigit(this.src[end]) {
 				break
 			}
-			val = 10*val + int(src[end]-'0')
+			val = 10*val + int(this.src[end]-'0')
 		}
 	} else if this.src[end] == 'x' || this.src[end] == 'x' {
-		for ; end < len(this.src); end++ {
-			if !isHex(src[end]) {
+		for ; end < uint64(len(this.src)); end++ {
+			if !isHex(this.src[end]) {
 				break
 			}
-			val = 16*val + hexToInt(src[end])
+			val = 16*val + uint64(hexToInt(this.src[end]))
 		}
 	} else {
-		for ; end < len(this.src); end++ {
-			if (src[end] < '0') || (src[end] > '7') {
+		for ; end < uint64(len(this.src)); end++ {
+			if (this.src[end] < '0') || (this.src[end] > '7') {
 				break
 			}
-			val = 8*val + int(src[end]-'0')
+			val = 8*val + uint64(this.src[end]-'0')
 		}
 	}
 
@@ -119,11 +307,11 @@ func (this *Parser) parseInt(config *config.RunConfig) {
 }
 
 func (this *Parser) parseIdentifier(config *config.RunConfig) {
-	begin = this.pos - 1
-	end = this.pos
+	begin := this.pos - 1
+	end := this.pos
 
-	for end < len(this.src) {
-		if !isIdentifierChar(src[end]) {
+	for ; end < uint64(len(this.src)); end++ {
+		if !isIdentifierChar(this.src[end]) {
 			break
 		}
 	}
@@ -132,13 +320,19 @@ func (this *Parser) parseIdentifier(config *config.RunConfig) {
 
 	name := string(this.src[begin:end])
 
-	symbol, ok := this.symbols[id]
+	//fmt.Println("parseIdentifier: name =", name)
+
+	symbol, ok := this.symbols[name]
 	if ok {
+		//fmt.Println("parseIdentifier: token =", symbol.Token)
 		this.token = symbol.Token
+		this.idName = this.src[begin:end]
 		return
 	}
+	this.token = ID
 	symbol = &Symbol{Token: ID, Name: name}
-	this.symbols[id] = symbol
+	this.symbols[name] = symbol
+	this.idName = this.src[begin:end]
 
 }
 
@@ -170,7 +364,7 @@ func isAlpha(ch byte) bool {
 	return isLower(ch) || isUpper(ch)
 }
 
-func isLower(ch byte) {
+func isLower(ch byte) bool {
 	return (ch >= 'a') && (ch <= 'z')
 }
 
@@ -188,4 +382,12 @@ func isIdentifierFisrtChar(ch byte) bool {
 
 func isIdentifierChar(ch byte) bool {
 	return isAlphaNum(ch) || (ch == '_')
+}
+
+func PrintChar(ch byte) string {
+	if strconv.IsPrint(rune(ch)) {
+		return fmt.Sprintf("%c", ch)
+	}
+	return fmt.Sprintf("%d", ch)
+
 }
