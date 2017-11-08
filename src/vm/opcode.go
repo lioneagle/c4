@@ -4,7 +4,7 @@ import (
 	"strconv"
 )
 
-type OpCode uint64
+type OpCode uint16
 
 // opcodes
 const (

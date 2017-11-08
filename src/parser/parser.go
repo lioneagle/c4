@@ -56,7 +56,7 @@ func (this *Parser) Line() uint64 {
 }
 
 func (this *Parser) Eof() bool {
-	return this.token == EOF
+	return this.token == TOKEN_EOF
 }
 
 func (this *Parser) Token() Token {
@@ -86,7 +86,7 @@ func (this *Parser) Next(config *config.RunConfig) {
 				fmt.Printf("%s, ", op)
 				if op < vm.OP_ADJ {
 					this.lastEmitPos++
-					fmt.Printf(" %d\n", this.vim.OpCode(this.lastEmitPos))
+					fmt.Printf(" %d\n", this.vim.Uint64(this.lastEmitPos))
 				} else {
 					fmt.Println()
 				}
@@ -105,7 +105,7 @@ func (this *Parser) Next(config *config.RunConfig) {
 			if this.src[this.pos] == '/' {
 				this.eatLine(config)
 			} else {
-				this.token = DIV
+				this.token = TOKEN_DIV
 			}
 			return
 		} else if ch == '\'' {
@@ -114,95 +114,95 @@ func (this *Parser) Next(config *config.RunConfig) {
 			this.parseString(config)
 		} else if ch == '=' {
 			if this.src[this.pos] == '=' {
-				this.token = EQ
+				this.token = TOKEN_EQ
 			} else {
-				this.token = ASSIGN
+				this.token = TOKEN_ASSIGN
 			}
 			return
 		} else if ch == '+' {
 			if this.src[this.pos] == '+' {
-				this.token = INC
+				this.token = TOKEN_INC
 			} else {
-				this.token = ADD
+				this.token = TOKEN_ADD
 			}
 			return
 		} else if ch == '-' {
 			if this.src[this.pos] == '-' {
-				this.token = DEC
+				this.token = TOKEN_DEC
 			} else {
-				this.token = SUB
+				this.token = TOKEN_SUB
 			}
 			return
 		} else if ch == '!' {
 			if this.src[this.pos] == '=' {
-				this.token = NE
+				this.token = TOKEN_NE
 			}
 			return
 		} else if ch == '<' {
 			if this.src[this.pos] == '=' {
-				this.token = LE
+				this.token = TOKEN_LE
 			} else if this.src[this.pos] == '<' {
-				this.token = SHL
+				this.token = TOKEN_SHL
 			} else {
-				this.token = LT
+				this.token = TOKEN_LT
 			}
 			return
 		} else if ch == '>' {
 			if this.src[this.pos] == '=' {
-				this.token = GE
+				this.token = TOKEN_GE
 			} else if this.src[this.pos] == '>' {
-				this.token = SHR
+				this.token = TOKEN_SHR
 			} else {
-				this.token = GT
+				this.token = TOKEN_GT
 			}
 			return
 		} else if ch == '|' {
 			if this.src[this.pos] == '|' {
-				this.token = LOR
+				this.token = TOKEN_LOR
 			} else {
-				this.token = OR
+				this.token = TOKEN_OR
 			}
 			return
 		} else if ch == '&' {
 			if this.src[this.pos] == '&' {
-				this.token = LAN
+				this.token = TOKEN_LAN
 			} else {
-				this.token = AND
+				this.token = TOKEN_AND
 			}
 			return
 		} else if ch == '^' {
-			this.token = XOR
+			this.token = TOKEN_XOR
 			return
 		} else if ch == '%' {
-			this.token = MOD
+			this.token = TOKEN_MOD
 			return
 		} else if ch == '*' {
-			this.token = MUL
+			this.token = TOKEN_MUL
 			return
 		} else if ch == '[' {
-			this.token = BRAK
+			this.token = TOKEN_BRAK
 			return
 		} else if ch == '?' {
-			this.token = COND
+			this.token = TOKEN_COND
 			return
 		} else if ch == '^' {
-			this.token = XOR
+			this.token = TOKEN_XOR
 			return
 		} else if ch == '~' || ch == ';' || ch == '{' || ch == '}' || ch == '(' || ch == ')' || ch == ']' || ch == ',' || ch == ':' {
 			this.token = Token(ch)
 			return
 		}
 	}
-	this.token = EOF
+	this.token = TOKEN_EOF
 }
 
 func (this *Parser) Expr(config *config.RunConfig) bool {
-	if this.token == EOF {
+	if this.token == TOKEN_EOF {
 		this.Error("unexpected eof in expression")
 		return false
 	}
 
-	if this.token == NUM {
+	if this.token == TOKEN_NUM {
 
 	}
 
@@ -224,7 +224,7 @@ func (this *Parser) parseString(config *config.RunConfig) {
 		return
 	}
 
-	this.token = STRING
+	this.token = TOKEN_STRING
 	this.sval = this.src[begin:this.pos]
 	this.pos++
 }
@@ -260,7 +260,7 @@ func (this *Parser) parseChar(config *config.RunConfig) {
 			return
 		}
 	}
-	this.token = CHAR
+	this.token = TOKEN_CHAR
 }
 
 func (this *Parser) eatLine(config *config.RunConfig) {
@@ -303,7 +303,7 @@ func (this *Parser) parseInt(config *config.RunConfig) {
 
 	this.pos = end
 	this.ival = val
-	this.token = NUM
+	this.token = TOKEN_NUM
 }
 
 func (this *Parser) parseIdentifier(config *config.RunConfig) {
@@ -329,8 +329,8 @@ func (this *Parser) parseIdentifier(config *config.RunConfig) {
 		this.idName = this.src[begin:end]
 		return
 	}
-	this.token = ID
-	symbol = &Symbol{Token: ID, Name: name}
+	this.token = TOKEN_ID
+	symbol = &Symbol{Token: TOKEN_ID, Name: name}
 	this.symbols[name] = symbol
 	this.idName = this.src[begin:end]
 
