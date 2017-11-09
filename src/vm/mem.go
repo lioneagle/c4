@@ -15,20 +15,20 @@ func NewMemView(size uint64) *memView {
 }
 
 func (this *memView) GetOpCode(pos uint64) (val OpCode, newPos uint64) {
-	return *(*OpCode)(unsafe.Pointer(&this.data[pos])), pos + uint64(unsafe.Sizeof(val))
+	return *(*OpCode)(unsafe.Pointer(&this.data[pos])), pos + SizeofOpCode()
 
 }
 
 func (this *memView) SetOpCode(pos uint64, val OpCode) (ok bool, newPos uint64) {
-	if (pos + uint64(unsafe.Sizeof(val))) > uint64(len(this.data)) {
+	if (pos + SizeofOpCode()) > uint64(len(this.data)) {
 		return false, pos
 	}
 	*(*OpCode)(unsafe.Pointer(&this.data[pos])) = val
-	return true, pos + uint64(unsafe.Sizeof(val))
+	return true, pos + SizeofOpCode()
 }
 
 func (this *memView) GetChar(pos uint64) (val byte, newPos uint64) {
-	return this.data[pos], pos + uint64(unsafe.Sizeof(val))
+	return this.data[pos], pos + SizeofChar()
 }
 
 func (this *memView) SetChar(pos uint64, val byte) (ok bool, newPos uint64) {
@@ -40,27 +40,27 @@ func (this *memView) SetChar(pos uint64, val byte) (ok bool, newPos uint64) {
 }
 
 func (this *memView) GetInt64(pos uint64) (val int64, newPos uint64) {
-	return *(*int64)(unsafe.Pointer(&this.data[pos])), pos + uint64(unsafe.Sizeof(val))
+	return *(*int64)(unsafe.Pointer(&this.data[pos])), pos + SizeofInt64()
 }
 
 func (this *memView) SetInt64(pos uint64, val int64) (ok bool, newPos uint64) {
-	if (pos + uint64(unsafe.Sizeof(val))) > uint64(len(this.data)) {
+	if (pos + SizeofInt64()) > uint64(len(this.data)) {
 		return false, pos
 	}
 	*(*int64)(unsafe.Pointer(&this.data[pos])) = val
-	return true, pos + uint64(unsafe.Sizeof(val))
+	return true, pos + SizeofInt64()
 }
 
 func (this *memView) GetUint64(pos uint64) (val uint64, newPos uint64) {
-	return *(*uint64)(unsafe.Pointer(&this.data[pos])), pos + uint64(unsafe.Sizeof(val))
+	return *(*uint64)(unsafe.Pointer(&this.data[pos])), pos + SizeofUint64()
 }
 
 func (this *memView) SetUint64(pos uint64, val uint64) (ok bool, newPos uint64) {
-	if (pos + uint64(unsafe.Sizeof(val))) > uint64(len(this.data)) {
+	if (pos + SizeofUint64()) > uint64(len(this.data)) {
 		return false, pos
 	}
 	*(*uint64)(unsafe.Pointer(&this.data[pos])) = val
-	return true, pos + uint64(unsafe.Sizeof(val))
+	return true, pos + SizeofUint64()
 }
 
 func (this *memView) GetString(pos uint64) (val string, newPos uint64) {

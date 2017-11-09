@@ -103,3 +103,11 @@ func (token Token) String() string {
 	}
 	return s
 }
+
+type Type int32
+
+const (
+	TYPE_CHAR Type = iota
+	TYPE_INT
+	TYPE_PTR
+)

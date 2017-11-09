@@ -16,17 +16,36 @@ type Registers struct {
 }
 
 type Vim struct {
-	text  *memView
-	data  *memView
-	stack *memView
-	reg   Registers
+	text      *memView
+	data      *memView
+	stack     *memView
+	reg       Registers
+	textSize  uint64
+	dataSize  uint64
+	stackSize uint64
 }
 
 const (
-	VM_TEXT_SIZE  = 256 * 1024
-	VM_DATA_SIZE  = 256 * 1024
-	VM_STACK_SIZE = 256 * 1024
+	VM_DEFAULT_TEXT_SIZE  = 256 * 1024
+	VM_DEFAULT_DATA_SIZE  = 256 * 1024
+	VM_DEFAULT_STACK_SIZE = 256 * 1024
 )
+
+func SizeofUint64() uint64 {
+	return uint64(unsafe.Sizeof(uint64(0)))
+}
+
+func SizeofInt64() uint64 {
+	return uint64(unsafe.Sizeof(int64(0)))
+}
+
+func SizeofOpCode() uint64 {
+	return uint64(unsafe.Sizeof(OpCode(0)))
+}
+
+func SizeofChar() uint64 {
+	return uint64(unsafe.Sizeof(byte(0)))
+}
 
 func NewVM(textSize, dataSize, stackSize uint64) *Vim {
 	vim := &Vim{}
@@ -37,22 +56,30 @@ func NewVM(textSize, dataSize, stackSize uint64) *Vim {
 	vim.reg.sp = uint64(len(vim.text.data))
 	vim.reg.bp = vim.reg.sp
 
+	vim.textSize = textSize
+	vim.dataSize = dataSize
+	vim.stackSize = stackSize
+
 	return vim
 }
 
-func (this *Vim) addOpCode(pos uint64, op OpCode) (ok bool, newPos uint64) {
+func (this *Vim) DataBegin() uint64 {
+	return this.textSize
+}
+
+func (this *Vim) AddOpCode(pos uint64, op OpCode) (ok bool, newPos uint64) {
 	return this.text.SetOpCode(pos, op)
 }
 
-func (this *Vim) addUint64(pos uint64, val uint64) (ok bool, newPos uint64) {
+func (this *Vim) AddUint64(pos uint64, val uint64) (ok bool, newPos uint64) {
 	return this.text.SetUint64(pos, val)
 }
 
-func (this *Vim) addChar(pos uint64, val byte) (ok bool, newPos uint64) {
+func (this *Vim) AddChar(pos uint64, val byte) (ok bool, newPos uint64) {
 	return this.text.SetChar(pos, val)
 }
 
-func (this *Vim) addDataString(pos uint64, str string) (ok bool, newPos uint64) {
+func (this *Vim) AddDataString(pos uint64, str string) (ok bool, newPos uint64) {
 	return this.text.SetString(pos, str)
 }
 
@@ -76,7 +103,7 @@ func (this *Vim) PopOpCode() (val OpCode) {
 }
 
 func (this *Vim) incPC() {
-	this.reg.pc += uint64(unsafe.Sizeof(uint64(0)))
+	this.reg.pc += SizeofUint64()
 }
 
 func (this *Vim) pcAddrValue() (val uint64) {
@@ -100,7 +127,7 @@ func (this *Vim) topStack() (val uint64) {
 }
 
 func (this *Vim) PushStack(val uint64) (ok bool) {
-	this.reg.sp -= uint64(unsafe.Sizeof(uint64(0)))
+	this.reg.sp -= SizeofUint64()
 	ok, _ = this.text.SetUint64(this.reg.sp, val)
 	return ok
 }

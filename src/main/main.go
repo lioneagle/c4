@@ -6,6 +6,7 @@ import (
 	//"os"
 	//"os/exec"
 	"parser"
+	"vm"
 )
 
 func main() {
@@ -43,6 +44,13 @@ func main() {
 
 	parser1 := parser.NewParser()
 
+	parser1.InitVim(runConfig, vm.VM_DEFAULT_TEXT_SIZE, vm.VM_DEFAULT_DATA_SIZE, vm.VM_DEFAULT_STACK_SIZE)
+
+	if !parser1.InitKeywords(runConfig) {
+		fmt.Println("ERROR: init keywords failed")
+		return
+	}
+
 	err = parser1.ReadFile(runConfig.Filename)
 	if err != nil {
 		fmt.Println(err)
@@ -53,7 +61,7 @@ func main() {
 		parser1.Next(runConfig)
 		fmt.Printf("line %d: token = %s", parser1.Line(), parser1.Token().String())
 		if parser1.Token() == parser.TOKEN_ID {
-			fmt.Printf(", id = %s", parser1.IdName())
+			fmt.Printf(", id = %s", parser1.CurrentIdName())
 		}
 		fmt.Printf("\n")
 	}

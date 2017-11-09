@@ -3,7 +3,6 @@ package vm
 import (
 	//"fmt"
 	"testing"
-	"unsafe"
 )
 
 func TestOpCode(t *testing.T) {
@@ -14,12 +13,12 @@ func TestOpCode(t *testing.T) {
 		ok      bool
 		newPos  uint64
 	}{
-		{100, 0, OP_ADJ, true, uint64(unsafe.Sizeof(OpCode(0)))},
-		{100, 1, OP_ENT, true, 1 + uint64(unsafe.Sizeof(OpCode(0)))},
-		{100, 50, OP_ENT, true, 50 + uint64(unsafe.Sizeof(OpCode(0)))},
-		{100, 100 - uint64(unsafe.Sizeof(OpCode(0))), OP_ENT, true, 100},
+		{100, 0, OP_ADJ, true, SizeofOpCode()},
+		{100, 1, OP_ENT, true, 1 + SizeofOpCode()},
+		{100, 50, OP_ENT, true, 50 + SizeofOpCode()},
+		{100, 100 - SizeofOpCode(), OP_ENT, true, 100},
 
-		{100, 100 - uint64(unsafe.Sizeof(OpCode(0))) + 1, OP_ENT, false, 0},
+		{100, 100 - SizeofOpCode() + 1, OP_ENT, false, 0},
 		{100, 100, OP_ADJ, false, 0},
 	}
 
@@ -65,12 +64,12 @@ func TestUint64(t *testing.T) {
 		ok      bool
 		newPos  uint64
 	}{
-		{100, 0, 789, true, uint64(unsafe.Sizeof(uint64(0)))},
-		{100, 1, 121349, true, 1 + uint64(unsafe.Sizeof(uint64(0)))},
-		{100, 50, 12876433, true, 50 + uint64(unsafe.Sizeof(uint64(0)))},
-		{100, 100 - uint64(unsafe.Sizeof(uint64(0))), 9999888, true, 100},
+		{100, 0, 789, true, SizeofUint64()},
+		{100, 1, 121349, true, 1 + SizeofUint64()},
+		{100, 50, 12876433, true, 50 + SizeofUint64()},
+		{100, 100 - SizeofUint64(), 9999888, true, 100},
 
-		{100, 100 - uint64(unsafe.Sizeof(uint64(0))) + 1, 56234496, false, 0},
+		{100, 100 - SizeofUint64() + 1, 56234496, false, 0},
 		{100, 100, 1235678, false, 0},
 	}
 
@@ -116,12 +115,12 @@ func TestInt64(t *testing.T) {
 		ok      bool
 		newPos  uint64
 	}{
-		{100, 0, 789, true, uint64(unsafe.Sizeof(int64(0)))},
-		{100, 1, -121349, true, 1 + uint64(unsafe.Sizeof(int64(0)))},
-		{100, 50, 12876433, true, 50 + uint64(unsafe.Sizeof(int64(0)))},
-		{100, 100 - uint64(unsafe.Sizeof(int64(0))), 9999888, true, 100},
+		{100, 0, 789, true, SizeofInt64()},
+		{100, 1, -121349, true, 1 + SizeofInt64()},
+		{100, 50, 12876433, true, 50 + SizeofInt64()},
+		{100, 100 - SizeofInt64(), 9999888, true, 100},
 
-		{100, 100 - uint64(unsafe.Sizeof(int64(0))) + 1, 56234496, false, 0},
+		{100, 100 - SizeofInt64() + 1, 56234496, false, 0},
 		{100, 100, -1235678, false, 0},
 	}
 
@@ -167,12 +166,12 @@ func TestChar(t *testing.T) {
 		ok      bool
 		newPos  uint64
 	}{
-		{100, 0, 'a', true, uint64(unsafe.Sizeof(byte(0)))},
-		{100, 1, 'A', true, 1 + uint64(unsafe.Sizeof(byte(0)))},
-		{100, 50, '0', true, 50 + uint64(unsafe.Sizeof(byte(0)))},
-		{100, 100 - uint64(unsafe.Sizeof(byte(0))), '9', true, 100},
+		{100, 0, 'a', true, SizeofChar()},
+		{100, 1, 'A', true, 1 + SizeofChar()},
+		{100, 50, '0', true, 50 + SizeofChar()},
+		{100, 100 - SizeofChar(), '9', true, 100},
 
-		{100, 100 - uint64(unsafe.Sizeof(byte(0))) + 1, ';', false, 0},
+		{100, 100 - SizeofChar() + 1, ';', false, 0},
 		{100, 100, '[', false, 0},
 	}
 

@@ -12,12 +12,12 @@ import (
 type Symbol struct {
 	Token  Token
 	Name   string
-	Class  int32
-	Type   int32
-	HClass int32
-	HType  int32
-	HValue int32
-	Id     string
+	Class  Token
+	Type   Type
+	Value  interface{}
+	HClass Token
+	HType  Type
+	HValue interface{}
 }
 
 type Symbols map[string]*Symbol
@@ -28,7 +28,9 @@ type Parser struct {
 	lastPos         uint64
 	emitPos         uint64
 	lastEmitPos     uint64
-	vim             vm.Vim
+	textPos         uint64
+	dataPos         uint64
+	vim             *vm.Vim
 	line            uint64
 	currentExprType uint64
 	token           Token
@@ -36,7 +38,8 @@ type Parser struct {
 	symbols         Symbols
 	ival            uint64
 	sval            []byte
-	idName          []byte
+	currentId       *Symbol
+	main            *Symbol
 }
 
 func NewParser() *Parser {
@@ -63,8 +66,31 @@ func (this *Parser) Token() Token {
 	return this.token
 }
 
-func (this *Parser) IdName() string {
-	return string(this.idName)
+func (this *Parser) CurrentIdName() string {
+	return this.currentId.Name
+}
+
+func (this *Parser) InitVim(config *config.RunConfig, textSize, dataSize, stackSize uint64) {
+	this.vim = vm.NewVM(textSize, dataSize, stackSize)
+}
+
+func (this *Parser) InitKeywords(config *config.RunConfig) bool {
+	keywords := []string{"char", "int", "void", "if", "else", "while", "return", "enum", "sizeof", "printf", "main"}
+	this.dataPos = this.vim.DataBegin()
+	for _, v := range keywords {
+		symbol := &Symbol{Token: TOKEN_ID, Name: v, Class: TOKEN_SYS, Type: TYPE_INT}
+		this.symbols[v] = symbol
+		ok, pos := this.vim.AddDataString(this.dataPos, v)
+		if !ok {
+			fmt.Printf("ERROR: init keyword \"%s\" failed\n", v)
+			return false
+		}
+		this.dataPos = pos
+	}
+
+	this.symbols["void"].Token = TOKEN_CHAR
+	this.main, _ = this.symbols["main"]
+	return true
 }
 
 func (this *Parser) Next(config *config.RunConfig) {
@@ -194,6 +220,143 @@ func (this *Parser) Next(config *config.RunConfig) {
 		}
 	}
 	this.token = TOKEN_EOF
+}
+
+func (this *Parser) global_declaration(config *config.RunConfig) bool {
+	// global_declaration ::= enum_decl | variable_decl | function_decl
+	//
+	// enum_decl ::= 'enum' [id] '{' id ['=' 'num'] {',' id ['=' 'num'} '}'
+	//
+	// variable_decl ::= type {'*'} id { ',' {'*'} id } ';'
+	//
+	// function_decl ::= type {'*'} id '(' parameter_decl ')' '{' body_decl '}'
+	baseType := TYPE_INT
+	currentType := TYPE_INT
+
+	// parse enum, this should be treated alone.
+	if this.token == TOKEN_ENUM {
+		return this.enum_declaration(config)
+	}
+
+	// parse type information
+	if this.token == TOKEN_INT {
+		this.Next(config)
+	} else if this.token == TOKEN_CHAR {
+		this.Next(config)
+		baseType = TYPE_CHAR
+	}
+
+	// parse the comma seperated variable declaration.
+	for this.token != ';' && this.token != '}' {
+		currentType = baseType
+
+		// parse pointer type, note that there may exist `int ****x;`
+		for this.token == TOKEN_MUL {
+			this.Next(config)
+			currentType += TYPE_PTR
+		}
+
+		if this.token != TOKEN_ID {
+			// invalid declaration
+			fmt.Printf("ERROR: line %d, bad global declaration\n", this.line)
+			return false
+		}
+
+		if this.currentId.Class > 0 {
+			// identifier exists
+			fmt.Printf("ERROR: line %d, duplicate global declaration\n")
+			return false
+		}
+
+		this.Next(config)
+		this.currentId.Type = currentType
+
+		if this.token == '(' {
+			this.currentId.Class = TOKEN_FUN
+			this.currentId.Value = this.textPos
+			if !this.function_declaration(config) {
+				return false
+			}
+		} else {
+			// variable declaration
+			this.currentId.Class = TOKEN_GLO
+			this.currentId.Value = this.dataPos
+			this.dataPos += vm.SizeofUint64()
+		}
+
+		if this.token == ',' {
+			this.Next(config)
+		}
+	}
+
+	return true
+}
+
+func (this *Parser) function_declaration(config *config.RunConfig) bool {
+	return true
+}
+
+func (this *Parser) enum_declaration(config *config.RunConfig) bool {
+	// parse enum [id] { a = 1, b = 3, ...}
+	if this.token != TOKEN_ENUM {
+		return false
+	}
+
+	this.Next(config)
+	if this.token != '{' {
+		if this.token != TOKEN_ID {
+			fmt.Printf("ERROR: line %d, unexpected token %s\n", this.line, this.token)
+			return false
+		}
+		// skip enum name
+		this.Next(config)
+	}
+	if this.token != '{' {
+		fmt.Printf("ERROR: line %d, no '{'\n", this.line)
+		return false
+	}
+	this.Next(config)
+
+	val := uint64(0)
+	for this.token != '}' {
+		if this.token != TOKEN_ID {
+			fmt.Printf("ERROR: line %d, bad enum identifier %s\n", this.line, this.token)
+			return false
+		}
+		this.Next(config)
+		if this.token == TOKEN_ASSIGN {
+			this.Next(config)
+			if this.token != TOKEN_NUM {
+				fmt.Printf("ERROR: line %d, bad enum initializer\n", this.line)
+				return false
+			}
+			val = this.ival
+			this.Next(config)
+		}
+
+		this.currentId.Class = TOKEN_NUM
+		this.currentId.Type = TYPE_INT
+		this.currentId.Value = val
+		val++
+
+		if this.token == ',' {
+			this.Next(config)
+		}
+	}
+
+	if this.token != '}' {
+		fmt.Printf("ERROR: line %d, no '}'\n", this.line, this.token)
+		return false
+	}
+	this.Next(config)
+
+	if this.token != ';' {
+		fmt.Printf("ERROR: line %d, no ';'\n", this.line, this.token)
+		return false
+	}
+	this.Next(config)
+
+	return true
 }
 
 func (this *Parser) Expr(config *config.RunConfig) bool {
@@ -326,13 +489,13 @@ func (this *Parser) parseIdentifier(config *config.RunConfig) {
 	if ok {
 		//fmt.Println("parseIdentifier: token =", symbol.Token)
 		this.token = symbol.Token
-		this.idName = this.src[begin:end]
+		this.currentId = symbol
 		return
 	}
 	this.token = TOKEN_ID
 	symbol = &Symbol{Token: TOKEN_ID, Name: name}
 	this.symbols[name] = symbol
-	this.idName = this.src[begin:end]
+	this.currentId = symbol
 
 }
 
