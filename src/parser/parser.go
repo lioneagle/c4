@@ -15,9 +15,9 @@ type Symbol struct {
 	Class  Token
 	Type   Type
 	Value  interface{}
-	HClass Token
-	HType  Type
-	HValue interface{}
+	BClass Token
+	BType  Type
+	BValue interface{}
 }
 
 type Symbols map[string]*Symbol
@@ -40,6 +40,7 @@ type Parser struct {
 	sval            []byte
 	currentId       *Symbol
 	main            *Symbol
+	indexOfBP       uint64
 }
 
 func NewParser() *Parser {
@@ -293,7 +294,183 @@ func (this *Parser) global_declaration(config *config.RunConfig) bool {
 }
 
 func (this *Parser) function_declaration(config *config.RunConfig) bool {
+	// function_decl ::= type {'*'} id '(' parameter_decl ')' '{' body_decl '}'
+	this.Next(config)
+
+	if !this.function_parameter(config) {
+		return false
+	}
+
+	if this.token != ')' {
+		fmt.Printf("ERROR: line %d, need ')'\n")
+		return false
+	}
+	this.Next(config)
+
+	if this.token != '{' {
+		fmt.Printf("ERROR: line %d, need '{'\n")
+		return false
+	}
+	this.Next(config)
+
+	if !this.function_body(config) {
+		return false
+	}
+
+	// unwind local variable declarations for all local variables.
+	this.unwindLocal(config)
+
 	return true
+}
+
+func (this *Parser) unwindLocal(config *config.RunConfig) {
+	for _, v := range this.symbols {
+
+		if v.Class == TOKEN_LOC {
+			v.Class = v.BClass
+			v.Type = v.BType
+			v.Value = v.BValue
+		}
+	}
+}
+
+func (this *Parser) function_parameter(config *config.RunConfig) bool {
+	// parameter_decl ::= type {'*'} id {',' type {'*'} id}
+	paramNum := 0
+	for this.token != ')' {
+		paramType := TYPE_INT
+
+		// int name, ...
+		if this.token == TOKEN_INT {
+			this.Next(config)
+		} else if this.token == TOKEN_CHAR {
+			paramType = TYPE_CHAR
+			this.Next(config)
+		} else {
+			fmt.Printf("ERROR: line %d, no parameter type\n")
+			return false
+		}
+
+		// pointer type
+		for this.token == TOKEN_MUL {
+			this.Next(config)
+			paramType += TYPE_PTR
+		}
+
+		// parameter name
+		if this.token != TOKEN_ID {
+			fmt.Printf("ERROR: line %d, no parameter name\n")
+			return false
+		}
+
+		if this.currentId.Class == TOKEN_LOC {
+			fmt.Printf("ERROR: line %d, duplicate parameter declaration\n")
+			return false
+		}
+
+		this.Next(config)
+
+		// store the local variable
+		this.storeLocal(config)
+		this.currentId.Type = paramType
+		this.currentId.Value = paramNum // index of current parameter
+		paramNum++
+
+		if this.token == ',' {
+			this.Next(config)
+		}
+	}
+
+	this.indexOfBP = uint64(paramNum) + 1
+	return true
+}
+
+func (this *Parser) function_body(config *config.RunConfig) bool {
+	// type func_name (...) {...}
+	//                   -->|   |<--
+	// ... {
+	// 1. local declarations
+	// 2. statements
+	// }
+
+	posLocal := this.indexOfBP
+
+	for this.token == TOKEN_INT || this.token == TOKEN_CHAR {
+		baseType := TYPE_INT
+		if this.token == TOKEN_CHAR {
+			baseType = TYPE_CHAR
+		}
+
+		for this.token != ';' {
+			varType := baseType
+			for this.token == TOKEN_MUL {
+				this.Next(config)
+				varType += TYPE_PTR
+			}
+
+			if this.token != TOKEN_ID {
+				fmt.Printf("ERROR: line %d, no local var name\n")
+				return false
+			}
+
+			if this.currentId.Class == TOKEN_LOC {
+				fmt.Printf("ERROR: line %d, duplicate parameter declaration\n")
+				return false
+			}
+
+			this.Next(config)
+
+			// store the local variable
+			this.storeLocal(config)
+			this.currentId.Type = varType
+			this.currentId.Value = posLocal
+			posLocal++
+
+			if this.token == ',' {
+				this.Next(config)
+			}
+		}
+
+		this.Next(config)
+	}
+
+	// save the stack size for local variables
+	var ok bool
+	ok, this.textPos = this.vim.AddOpCode(this.textPos, vm.OP_ENT)
+	if !ok {
+		fmt.Printf("ERROR: line %d, generate OP_ENT failed\n")
+		return false
+	}
+
+	ok, this.textPos = this.vim.AddUint64(this.textPos, posLocal-this.indexOfBP)
+	if !ok {
+		fmt.Printf("ERROR: line %d, generate OP_ENT param failed\n")
+		return false
+	}
+
+	// statements
+	if !this.statement(config) {
+		return false
+	}
+
+	ok, this.textPos = this.vim.AddOpCode(this.textPos, vm.OP_LEV)
+	if !ok {
+		fmt.Printf("ERROR: line %d, generate OP_LEV failed\n")
+		return false
+	}
+
+	return true
+}
+
+func (this *Parser) statement(config *config.RunConfig) bool {
+	return false
+}
+
+func (this *Parser) storeLocal(config *config.RunConfig) {
+	this.currentId.BClass = this.currentId.Class
+	this.currentId.Class = TOKEN_LOC
+	this.currentId.BType = this.currentId.Type
+	this.currentId.BValue = this.currentId.Value
 }
 
 func (this *Parser) enum_declaration(config *config.RunConfig) bool {
